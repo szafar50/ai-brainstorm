@@ -7,7 +7,7 @@ function App() {
   if (!input.trim()) return;
 
   try {
-    const res = await fetch('http://localhost:8000/save', {
+    const res = await fetch('https://ai-brainstorm.onrender.com/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: input }),

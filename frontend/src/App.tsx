@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from './lib/supabase';
 
 function App() {
   const [input, setInput] = useState<string>('');
@@ -6,6 +7,17 @@ function App() {
 const handleSubmit = async () => {
   if (!input.trim()) return;
 
+  // 1. Save to Supabase immediately
+  const { error: saveError } = await supabase
+    .from('messages')
+    .insert([{ content: input, role: 'user' }]);
+
+  if (saveError) {
+    alert('Failed to save to cloud');
+    return;
+  }
+
+  // 2. Then call AI (next step)
   try {
     const response = await fetch(import.meta.env.VITE_API_URL + '/save', {
       method: 'POST',

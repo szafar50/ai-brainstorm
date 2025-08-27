@@ -1,3 +1,4 @@
+# backend/main.py
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,13 +8,13 @@ app = FastAPI(title="AI Brainstorm Backend")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://ai-brainstorm-2.vercel.app",   # Vite dev server https://ai-brainstorm-2-pqxrk2b8a-shahid-zafars-projects.vercel.app/
-        "http://localhost:5173",   # fallback
-        "https://ai-brainstorm-2-pqxrk2b8a-shahid-zafars-projects.vercel.app"
+        "https://ai-brainstorm-2.vercel.app",   # ✅ No spaces
+        "https://ai-brainstorm-2-pqxrk2b8a-shahid-zafars-projects.vercel.app",  # ✅ Optional: full subdomain
+        "http://localhost:5173",
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows: POST, GET, etc.
-    allow_headers=["*"],  # Allows: Content-Type, etc.
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class Thought(BaseModel):

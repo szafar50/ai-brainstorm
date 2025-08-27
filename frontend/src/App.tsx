@@ -1,18 +1,18 @@
 import { useState } from 'react';
 
 function App() {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState<string>('');
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
   if (!input.trim()) return;
 
   try {
-    const res = await fetch('https://ai-brainstorm.onrender.com/save', {
+    const response = await fetch(import.meta.env.VITE_API_URL + '/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: input }),
     });
-    const data = await res.json();
+    const data = await response.json();
     alert(`Saved: ${data.thought}`);
     setInput('');
   } catch (err) {
@@ -25,7 +25,6 @@ function App() {
       <h1 style={styles.title}>AI Brainstorm 🌀</h1>
       <p style={styles.subtitle}>Your mind. Your model. Your tokens.</p>
 
-      {/* Input Widget */}
       <input
         type="text"
         placeholder="Type a thought..."
@@ -35,7 +34,6 @@ function App() {
         style={styles.input}
       />
 
-      {/* Submit Button */}
       <button onClick={handleSubmit} style={styles.button}>
         Save Thought
       </button>
@@ -43,8 +41,7 @@ function App() {
   );
 }
 
-// Inline styles for clarity (no Tailwind needed)
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100vh',
     background: 'black',
@@ -62,7 +59,7 @@ const styles = {
     margin: '0',
   },
   subtitle: {
-    color: '#943be7ff',
+    color: '#a855f7',
     fontSize: '1.1rem',
     margin: '0',
   },

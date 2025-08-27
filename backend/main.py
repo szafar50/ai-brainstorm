@@ -7,8 +7,9 @@ app = FastAPI(title="AI Brainstorm Backend")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://ai-brainstorm-2.vercel.app",   # Vite dev server
+        "https://ai-brainstorm-2.vercel.app",   # Vite dev server https://ai-brainstorm-2-pqxrk2b8a-shahid-zafars-projects.vercel.app/
         "http://localhost:5173",   # fallback
+        "https://ai-brainstorm-2-pqxrk2b8a-shahid-zafars-projects.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],  # Allows: POST, GET, etc.

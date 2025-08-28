@@ -2,7 +2,21 @@ import { useState } from 'react';
 import { supabase } from './lib/supabase';
 
 function App() {
-  const [input, setInput] = useState<string>('');
+const [input, setInput] = useState<string>('');
+
+const fetchMessages = async () => {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('content, role')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching messages:', error);
+    return [];
+  }
+
+  return data;
+};
 
 const handleSubmit = async () => {
   if (!input.trim()) return;

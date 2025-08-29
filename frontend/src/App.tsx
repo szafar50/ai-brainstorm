@@ -2,49 +2,104 @@ import { useState } from 'react';
 import { supabase } from './lib/supabase';
 
 function App() {
-const [input, setInput] = useState<string>('');
+  const [input, setInput] = useState<string>('');
 
-const fetchMessages = async () => {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('content, role')
-    .order('created_at', { ascending: true });
+  const extractTopics = async (contextString: string) => {
+    try {
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/bigscience/bloom",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${import.meta.env.VITE_HF_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            inputs: `
+              Extract key topics from this conversation as a JSON list:
+              ${contextString}
+              Return only: ["topic1", "topic2", ...]
+            `,
+          }),
+        }
+      );
 
-  if (error) {
-    console.error('Error fetching messages:', error);
-    return [];
-  }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-  return data;
-};
+      const data = await response.json();
+      try {
+        const topics = JSON.parse(data[0]?.generated_text || '[]');
+        console.log("Extracted topics:", topics);
+        return topics;
+      } catch (err) {
+        console.error("Failed to parse topics:", err);
+        return [];
+      }
+    } catch (error) {
+      console.error("Error calling Hugging Face API:", error);
+      return [];
+    }
+  };
 
-const handleSubmit = async () => {
-  if (!input.trim()) return;
+  const fetchMessages = async () => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('content, role')
+      .order('created_at', { ascending: true });
 
-  // 1. Save to Supabase immediately
-  const { error: saveError } = await supabase
-    .from('messages')
-    .insert([{ content: input, role: 'user' }]);
+    if (error) {
+      console.error('Error fetching messages:', error);
+      return [];
+    }
 
-  if (saveError) {
-    alert('Failed to save to cloud');
-    return;
-  }
+    return data || [];
+  };
 
-  // 2. Then call AI (next step)
-  try {
-    const response = await fetch(import.meta.env.VITE_API_URL + '/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: input }),
-    });
-    const data = await response.json();
-    alert(`Saved: ${data.thought}`);
-    setInput('');
-  } catch (err) {
-    alert('Failed to connect to backend');
-  }
-};
+  const handleSubmit = async () => {
+    if (!input.trim()) return;
+
+    try {
+      // 1. Save to Supabase immediately
+      const { error: saveError } = await supabase
+        .from('messages')
+        .insert([{ content: input, role: 'user' }]);
+
+      if (saveError) {
+        console.error('Supabase error:', saveError);
+        alert('Failed to save to cloud');
+        return;
+      }
+
+      // 2. Then call AI (next step)
+      const response = await fetch(import.meta.env.VITE_API_URL + '/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: input }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      alert(`Saved: ${data.thought}`);
+      setInput('');
+
+      // Optional: Extract topics from the current conversation
+      const messages = await fetchMessages();
+      if (messages.length > 0) {
+        const contextString = messages.map(m => `${m.role}: ${m.content}`).join('\n');
+        const topics = await extractTopics(contextString);
+        console.log('Current conversation topics:', topics);
+      }
+
+    } catch (err) {
+      console.error('Error in handleSubmit:', err);
+      alert('Failed to connect to backend');
+    }
+  };
 
   return (
     <div style={styles.container}>

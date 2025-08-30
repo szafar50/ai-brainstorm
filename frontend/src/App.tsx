@@ -57,58 +57,23 @@ function App() {
     return data || [];
   };
 
-const handleSubmit = async () => {
-  if (!input.trim()) return;
-
-  // Save to Supabase
-  const { error: saveError } = await supabase
-    .from('messages')
-    .insert([{ content: input, role: 'user' }]);
-
-  if (saveError) {
-    alert('Failed to save');
-    return;
-  }
-
-  // Fetch all messages
-  const { data: messages } = await supabase
-    .from('messages')
-    .select('content, role')
-    .order('created_at', { ascending: true });
-
-  // Call backend AI
-  const res = await fetch(import.meta.env.VITE_API_URL + '/ai', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages })
-  });
-
-  const data = await res.json();
-  console.log("AI Responses:", data.responses);
-  alert(data.responses.join("\\n\\n"));
-};
-
-      // Fetch context
-        const contextRes = await fetch(import.meta.env.VITE_API_URL + '/context', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(context),
-        });
-        const { context: smartContext } = await contextRes.json();
-        console.log("Smart Context:", smartContext);
-
-      // Extract topics from the current conversation
-      const messages = await fetchMessages();
-      if (messages.length > 0) {
-        const contextString = messages.map(m => `${m.role}: ${m.content}`).join('\n');
-        const topics = await extractTopics(contextString);
-        console.log('Current conversation topics:', topics);
-      }
-
-    } catch (err) {
-      console.error('Error in handleSubmit:', err);
-      alert('Failed to connect to backend');
+  const handleSubmit = async () => {
+    if (!input.trim()) return;
+    // 1. Save user message to Supabase
+    const { error: saveError } = await supabase
+      .from('messages')
+      .insert([{ content: input, role: 'user' }]);
+    if (saveError) {
+      alert('Failed to save to cloud');
+      return;
     }
+    // 2. Fetch full context
+    const context = await fetchMessages();
+    const contextString = context.map(m => `${m.role}: ${m.content}`).join('\n');
+    // 3. Call AI model with context (next step)
+    console.log('Full context:', contextString);
+    // 4. Clear input
+    setInput('');
   };
 
   return (

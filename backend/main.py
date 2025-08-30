@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import httpx
 import os
-
+from error_handler import global_exception_handler
 from smart_engine import build_smart_context
 
 app = FastAPI(title="AI Brainstorm Backend")
@@ -25,6 +25,8 @@ app.add_middleware(
 # Models
 HF_API_KEY = os.getenv("HF_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+app.add_exception_handler(Exception, global_exception_handler)
 
 class Message(BaseModel):
     content: str

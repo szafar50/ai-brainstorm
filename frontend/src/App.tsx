@@ -57,37 +57,47 @@ function App() {
     return data || [];
   };
 
-  const handleSubmit = async () => {
-    if (!input.trim()) return;
+const handleSubmit = async () => {
+  if (!input.trim()) return;
 
-    try {
-      // 1. Save to Supabase immediately
-      const { error: saveError } = await supabase
-        .from('messages')
-        .insert([{ content: input, role: 'user' }]);
+  // Save to Supabase
+  const { error: saveError } = await supabase
+    .from('messages')
+    .insert([{ content: input, role: 'user' }]);
 
-      if (saveError) {
-        console.error('Supabase error:', saveError);
-        alert('Failed to save to cloud');
-        return;
-      }
+  if (saveError) {
+    alert('Failed to save');
+    return;
+  }
 
-      // 2. Then call AI (next step)
-      const response = await fetch(import.meta.env.VITE_API_URL + '/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: input }),
-      });
+  // Fetch all messages
+  const { data: messages } = await supabase
+    .from('messages')
+    .select('content, role')
+    .order('created_at', { ascending: true });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  // Call backend AI
+  const res = await fetch(import.meta.env.VITE_API_URL + '/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages })
+  });
 
-      const data = await response.json();
-      alert(`Saved: ${data.thought}`);
-      setInput('');
+  const data = await res.json();
+  console.log("AI Responses:", data.responses);
+  alert(data.responses.join("\\n\\n"));
+};
 
-      // Optional: Extract topics from the current conversation
+      // Fetch context
+        const contextRes = await fetch(import.meta.env.VITE_API_URL + '/context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(context),
+        });
+        const { context: smartContext } = await contextRes.json();
+        console.log("Smart Context:", smartContext);
+
+      // Extract topics from the current conversation
       const messages = await fetchMessages();
       if (messages.length > 0) {
         const contextString = messages.map(m => `${m.role}: ${m.content}`).join('\n');

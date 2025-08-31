@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import httpx
+from typing import List
 import os
 from error_handler import global_exception_handler
 from smart_engine import build_smart_context

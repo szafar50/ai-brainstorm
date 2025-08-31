@@ -77,7 +77,7 @@ class AIRequest(BaseModel):
 async def call_huggingface(client: httpx.AsyncClient, prompt: str):
     try:
         resp = await client.post(
-            "https://api-inference.huggingface.co/models/gpt2",
+            "https://api-inference.huggingface.co/models/google/flan-t5-small",
             headers={"Authorization": f"Bearer {HF_API_KEY}"},
             json={"inputs": prompt, "max_new_tokens": 100}
         )

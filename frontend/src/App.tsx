@@ -4,45 +4,6 @@ import { supabase } from './lib/supabase';
 function App() {
   const [input, setInput] = useState<string>('');
 
-  const extractTopics = async (contextString: string) => {
-    try {
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/bigscience/bloom",
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${import.meta.env.VITE_HF_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            inputs: `
-              Extract key topics from this conversation as a JSON list:
-              ${contextString}
-              Return only: ["topic1", "topic2", ...]
-            `,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      try {
-        const topics = JSON.parse(data[0]?.generated_text || '[]');
-        console.log("Extracted topics:", topics);
-        return topics;
-      } catch (err) {
-        console.error("Failed to parse topics:", err);
-        return [];
-      }
-    } catch (error) {
-      console.error("Error calling Hugging Face API:", error);
-      return [];
-    }
-  };
-
   const fetchMessages = async () => {
     const { data, error } = await supabase
       .from('messages')
@@ -57,25 +18,47 @@ function App() {
     return data || [];
   };
 
-  const handleSubmit = async () => {
-    if (!input.trim()) return;
-    // 1. Save user message to Supabase
-    const { error: saveError } = await supabase
-      .from('messages')
-      .insert([{ content: input, role: 'user' }]);
-    if (saveError) {
-      alert('Failed to save to cloud');
-      return;
-    }
-    // 2. Fetch full context
-    const context = await fetchMessages();
-    const contextString = context.map(m => `${m.role}: ${m.content}`).join('\n');
-    // 3. Call AI model with context (next step)
-    console.log('Full context:', contextString);
-    // 4. Clear input
-    setInput('');
-  };
+const handleSubmit = async () => {
+  if (!input.trim()) return;
 
+  // 1. Save user message to Supabase
+  const { error: saveError } = await supabase
+    .from('messages')
+    .insert([{ content: input, role: 'user' }]);
+
+  if (saveError) {
+    alert('Failed to save to cloud');
+    return;
+  }
+
+  // 2. Fetch full context AFTER save
+  const context = await fetchMessages();
+  const contextString = context.map(m => `${m.role}: ${m.content}`).join('\n');
+  console.log('Full context:', contextString);
+
+  // 3. NOW call AI with full context
+  try {
+    const aiRes = await fetch(import.meta.env.VITE_API_URL + '/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: context }) // 👈 Send context
+    });
+
+    if (!aiRes.ok) {
+      throw new Error(`AI request failed: ${aiRes.status}`);
+    }
+
+    const data = await aiRes.json();
+    console.log("AI Response:", data);
+    alert(data.responses.join("\n\n"));
+  } catch (err) {
+    console.error("AI call failed:", err);
+    alert("AI call failed. Check console.");
+  }
+
+  // 4. Clear input
+  setInput('');
+};
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>AI Brainstorm 🌀</h1>

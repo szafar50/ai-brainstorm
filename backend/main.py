@@ -10,6 +10,19 @@ from smart_engine import build_smart_context
 
 app = FastAPI(title="AI Brainstorm Backend")
 
+#db connection
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+async def fetch_context_from_supabase():
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{SUPABASE_URL}/rest/v1/messages",
+            headers={"apikey": SUPABASE_ANON_KEY},
+            params={"order": "created_at"}
+        )
+        return response.json()
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -36,7 +49,7 @@ class Message(BaseModel):
 class AIRequest(BaseModel):
     messages: List[Message]
 
-async def call_hf(client: httpx.AsyncClient, prompt: str):
+async def call_huggingface(client: httpx.AsyncClient, prompt: str):
     try:
         resp = await client.post(
             "https://api-inference.huggingface.co/models/gpt2",
@@ -59,24 +72,44 @@ async def call_groq(client: httpx.AsyncClient, prompt: str):
         return f"Groq: Error {str(e)}"
 
 @app.post("/ai")
-async def get_ai_response(request: AIRequest):
-    # 1. Build smart context
-    smart_context = build_smart_context(request.messages)
-    
-    # 2. Call models in parallel
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        tasks = [
-            call_hf(client, smart_context),
-            call_groq(client, smart_context)
-        ]
-        results = await asyncio.gather(*tasks)
-    
-    # 3. Return all responses
-    return {
-        "context": smart_context,
-        "responses": results
-    }
+async def get_ai_response():
+    try:
+        # 1. Fetch messages from Supabase
+        raw_messages = await fetch_context_from_supabase()
 
-@app.get("/")
-def home():
-    return {"message": "Backend is alive 🚀"}
+        # 2. Format messages
+        messages = [{"role": m["role"], "content": m["content"]} for m in raw_messages]
+
+        # 3. Build smart context
+        smart_context = build_smart_context(messages)
+
+        # 4. Call AI models in parallel
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            tasks = [
+                call_huggingface(client, smart_context),
+                call_groq(client, smart_context)
+            ]
+            results = await asyncio.gather(*tasks)
+
+        # 5. Return response
+        return {
+            "status": "success",
+            "responses": results,
+            "context": smart_context
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+async def fetch_context_from_supabase():
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{SUPABASE_URL}/rest/v1/messages",
+            headers={"apikey": SUPABASE_ANON_KEY},
+            params={"order": "created_at"}
+        )
+        return response.json()

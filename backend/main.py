@@ -8,13 +8,24 @@ import os
 from error_handler import global_exception_handler
 from smart_engine import build_smart_context
 
+# -----------------------------------------------------
+# FASTAPI APP INITIALIZATION
+# -----------------------------------------------------
 app = FastAPI(title="AI Brainstorm Backend")
 
-#db connection
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+# -----------------------------------------------------
+# SUPABASE CONNECTION
+# - Pulls messages history from Supabase REST API
+# - Uses environment variables for security
+# -----------------------------------------------------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 async def fetch_context_from_supabase():
+    """Fetch conversation messages from Supabase (ordered by created_at)."""
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{SUPABASE_URL}/rest/v1/messages",
@@ -23,7 +34,10 @@ async def fetch_context_from_supabase():
         )
         return response.json()
 
-# CORS
+# -----------------------------------------------------
+# CORS MIDDLEWARE
+# - Allows your frontend (Vercel/localhost) to call backend
+# -----------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -36,12 +50,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Models
+# -----------------------------------------------------
+# EXTERNAL API KEYS
+# -----------------------------------------------------
 HF_API_KEY = os.getenv("HF_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
+# -----------------------------------------------------
+# GLOBAL ERROR HANDLER
+# -----------------------------------------------------
 app.add_exception_handler(Exception, global_exception_handler)
 
+# -----------------------------------------------------
+# REQUEST MODELS
+# -----------------------------------------------------
 class Message(BaseModel):
     content: str
     role: str
@@ -49,28 +71,55 @@ class Message(BaseModel):
 class AIRequest(BaseModel):
     messages: List[Message]
 
+# -----------------------------------------------------
+# CALLING HUGGING FACE (free AI models)
+# -----------------------------------------------------
 async def call_huggingface(client: httpx.AsyncClient, prompt: str):
+    """Send prompt to Hugging Face inference API (gpt2 demo)."""
     try:
         resp = await client.post(
             "https://api-inference.huggingface.co/models/gpt2",
             headers={"Authorization": f"Bearer {HF_API_KEY}"},
             json={"inputs": prompt, "max_new_tokens": 150}
         )
+        if resp.status_code != 200:
+            return f"Hugging Face: HTTP {resp.status_code}"
         return "Hugging Face: " + resp.json()[0]['generated_text']
-    except Exception as e:
-        return f"Hugging Face: Error {str(e)}"
+    except Exception:
+        return "Hugging Face: Failed"
 
+# -----------------------------------------------------
+# CALLING GROQ (LLaMA3 model)
+# -----------------------------------------------------
 async def call_groq(client: httpx.AsyncClient, prompt: str):
     try:
         resp = await client.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-            json={"model": "llama3-8b-8192", "messages": [{"role": "user", "content": prompt}]}
+            json={
+                "model": "mixtral-8x7b-32768",  # ← Mistral 7B-based, 32k context
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 150
+            }
         )
-        return "Groq: " + resp.json()['choices'][0]['message']['content']
+        if resp.status_code != 200:
+            return f"Groq: HTTP {resp.status_code} - {resp.text}"
+        
+        data = resp.json()
+        if "choices" not in data or len(data["choices"]) == 0:
+            return "Groq: No 'choices' in response"
+        
+        content = data["choices"][0]["message"]["content"]
+        return f"Groq (Mixtral): {content}"
     except Exception as e:
-        return f"Groq: Error {str(e)}"
+        return f"Groq: Failed to parse response - {str(e)}"
 
+# -----------------------------------------------------
+# MAIN ENDPOINT: /ai
+# - Fetches history from Supabase
+# - Builds smart context (smart_engine.py)
+# - Calls HuggingFace + Groq in parallel
+# -----------------------------------------------------
 @app.post("/ai")
 async def get_ai_response():
     try:
@@ -91,7 +140,7 @@ async def get_ai_response():
             ]
             results = await asyncio.gather(*tasks)
 
-        # 5. Return response
+        # 5. Return structured response
         return {
             "status": "success",
             "responses": results,
@@ -99,17 +148,3 @@ async def get_ai_response():
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-
-async def fetch_context_from_supabase():
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{SUPABASE_URL}/rest/v1/messages",
-            headers={"apikey": SUPABASE_ANON_KEY},
-            params={"order": "created_at"}
-        )
-        return response.json()

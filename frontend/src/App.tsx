@@ -24,6 +24,7 @@ const handleSubmit = async () => {
   
   if (!input.trim()) return;
 
+  
   // 1. Save user message to Supabase
   const { error: saveError } = await supabase
     .from('messages')
@@ -48,6 +49,8 @@ const handleSubmit = async () => {
     });
 
     if (!aiRes.ok) {
+      const text = await aiRes.text();
+      console.error("AI request failed:", aiRes.status, text);
       throw new Error(`AI request failed: ${aiRes.status}`);
     }
 

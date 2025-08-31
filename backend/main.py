@@ -75,19 +75,17 @@ class AIRequest(BaseModel):
 # CALLING HUGGING FACE (free AI models)
 # -----------------------------------------------------
 async def call_huggingface(client: httpx.AsyncClient, prompt: str):
-    """Send prompt to Hugging Face inference API (gpt2 demo)."""
     try:
         resp = await client.post(
             "https://api-inference.huggingface.co/models/gpt2",
             headers={"Authorization": f"Bearer {HF_API_KEY}"},
-            json={"inputs": prompt, "max_new_tokens": 150}
+            json={"inputs": prompt, "max_new_tokens": 100}
         )
         if resp.status_code != 200:
-            return f"Hugging Face: HTTP {resp.status_code}"
+            return f"Hugging Face: HTTP {resp.status_code} - {resp.text}"
         return "Hugging Face: " + resp.json()[0]['generated_text']
-    except Exception:
-        return "Hugging Face: Failed"
-
+    except Exception as e:
+        return f"Hugging Face: Failed - {str(e)}"
 # -----------------------------------------------------
 # CALLING GROQ (LLaMA3 model)
 # -----------------------------------------------------
@@ -97,7 +95,7 @@ async def call_groq(client: httpx.AsyncClient, prompt: str):
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
             json={
-                "model": "mixtral-8x7b-32768",  # ← Mistral 7B-based, 32k context
+                "model": "llama-3.3-70b-versatile",  # ✅ Current production model
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 150
             }
@@ -110,9 +108,9 @@ async def call_groq(client: httpx.AsyncClient, prompt: str):
             return "Groq: No 'choices' in response"
         
         content = data["choices"][0]["message"]["content"]
-        return f"Groq (Mixtral): {content}"
+        return f"Groq: {content}"
     except Exception as e:
-        return f"Groq: Failed to parse response - {str(e)}"
+        return f"Groq: Failed - {str(e)}"
 
 # -----------------------------------------------------
 # MAIN ENDPOINT: /ai

@@ -4,6 +4,8 @@ import { supabase } from './lib/supabase';
 function App() {
   const [input, setInput] = useState<string>('');
 
+  const [output, setOutput] = useState<string[]>([]);
+
   const fetchMessages = async () => {
     const { data, error } = await supabase
       .from('messages')
@@ -19,6 +21,7 @@ function App() {
   };
 
 const handleSubmit = async () => {
+  
   if (!input.trim()) return;
 
   // 1. Save user message to Supabase
@@ -50,6 +53,20 @@ const handleSubmit = async () => {
 
     const data = await aiRes.json();
     console.log("AI Response:", data);
+    
+    setOutput([...data.responses]);
+
+    // Save AI responses to Supabase
+    for (const response of data.responses) {
+      if (response.includes("Hugging Face:") || response.includes("Groq:")) {
+        const content = response.split(": ").slice(1).join(": ");
+        await supabase
+          .from('messages')
+          .insert([{ content, role: 'assistant' }]);
+      }
+    }
+
+
     alert(data.responses.join("\n\n"));
   } catch (err) {
     console.error("AI call failed:", err);
@@ -76,6 +93,11 @@ const handleSubmit = async () => {
       <button onClick={handleSubmit} style={styles.button}>
         Save Thought
       </button>
+      <div style={styles.output}>
+        {output.map((res, i) => (
+          <p key={i} style={{ margin: '8px 0' }}>{res}</p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -112,6 +134,19 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'white',
     fontSize: '1rem',
     outline: 'none',
+  },
+  output: {
+    marginTop: '20px',
+    width: '100%',
+    maxWidth: '600px',
+    backgroundColor: '#1a1a1a',
+    border: '2px solid #c084fc',
+    borderRadius: '8px',
+    padding: '16px',
+    color: 'white',
+    fontSize: '1rem',
+    maxHeight: '300px',
+    overflowY: 'auto',
   },
   button: {
     padding: '12px 24px',

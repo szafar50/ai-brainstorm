@@ -12,9 +12,11 @@ async def call_huggingface(client: httpx.AsyncClient, prompt: str):
             headers={"Authorization": f"Bearer {HF_API_KEY}"},
             json={"inputs": prompt, "max_new_tokens": 150}
         )
+        if resp.status_code != 200:
+            return f"Hugging Face: Error {resp.status_code}"
         return "Hugging Face: " + resp.json()[0]['generated_text']
     except Exception as e:
-        return f"Hugging Face: Error {str(e)}"
+        return f"Hugging Face: Failed"
 
 async def call_groq(client: httpx.AsyncClient, prompt: str):
     try:

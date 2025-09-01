@@ -77,13 +77,23 @@ class AIRequest(BaseModel):
 async def call_huggingface(client: httpx.AsyncClient, prompt: str):
     try:
         resp = await client.post(
-            "https://api-inference.huggingface.co/models/openai-community/gpt2",
+            "https://api-inference.huggingface.co/models/openai-community/gpt2",  # ✅ small free model
             headers={"Authorization": f"Bearer {HF_API_KEY}"},
-            json={"inputs": prompt, "max_new_tokens": 100}
+            json={"inputs": prompt, "parameters": {"max_new_tokens": 100}}
         )
+
+        # Handle non-200 responses
         if resp.status_code != 200:
             return f"Hugging Face: HTTP {resp.status_code} - {resp.text}"
-        return "Hugging Face: " + resp.json()[0]['generated_text']
+
+        data = resp.json()
+
+        # Sometimes HF errors are inside the JSON response itself
+        if isinstance(data, dict) and "error" in data:
+            return f"Hugging Face: API Error - {data['error']}"
+
+        return "Hugging Face: " + data[0].get("generated_text", "").strip()
+
     except Exception as e:
         return f"Hugging Face: Failed - {str(e)}"
 # -----------------------------------------------------

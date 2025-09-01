@@ -71,6 +71,36 @@ class Message(BaseModel):
 class AIRequest(BaseModel):
     messages: List[Message]
 
+
+async def call_huggingface(client: httpx.AsyncClient, prompt: str):
+    """Try GPT-2 first, fallback to FLAN-T5-small if unavailable."""
+    models = ["gpt2", "google/flan-t5-small"]
+    for model in models:
+        try:
+            resp = await client.post(
+                f"https://api-inference.huggingface.co/models/{model}",
+                headers={"Authorization": f"Bearer {HF_API_KEY}"},
+                json={"inputs": prompt, "parameters": {"max_new_tokens": 100}}
+            )
+
+            if resp.status_code != 200:
+                print(f"HF {model} failed with {resp.status_code}: {await resp.aread()}")
+                continue  # try next model
+
+            data = resp.json()
+            if isinstance(data, dict) and "error" in data:
+                print(f"HF {model} error: {data['error']}")
+                continue
+
+            return f"Hugging Face ({model}): " + data[0].get("generated_text", "").strip()
+
+        except Exception as e:
+            print(f"HF {model} exception: {str(e)}")
+            continue
+    
+    return "Hugging Face: All models failed"
+
+"""
 # -----------------------------------------------------
 # CALLING HUGGING FACE (free AI models)
 # -----------------------------------------------------
@@ -96,7 +126,8 @@ async def call_huggingface(client: httpx.AsyncClient, prompt: str):
 
     except Exception as e:
         return f"Hugging Face: Failed - {str(e)}"
-# -----------------------------------------------------
+    
+"""
 # CALLING GROQ (LLaMA3 model)
 # -----------------------------------------------------
 async def call_groq(client: httpx.AsyncClient, prompt: str):

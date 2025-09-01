@@ -77,7 +77,7 @@ class AIRequest(BaseModel):
 async def call_huggingface(client: httpx.AsyncClient, prompt: str):
     try:
         resp = await client.post(
-            "https://api-inference.huggingface.co/models/google/flan-t5-small",
+            "https://api-inference.huggingface.co/models/openai-community/gpt2",
             headers={"Authorization": f"Bearer {HF_API_KEY}"},
             json={"inputs": prompt, "max_new_tokens": 100}
         )
@@ -95,7 +95,7 @@ async def call_groq(client: httpx.AsyncClient, prompt: str):
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
             json={
-                "model": "llama-3.3-70b-versatile",  # ✅ Latest production model
+                "model": "llama-3.3-70b-versatile",  # ✅ Only reliable production model
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 150
             }
@@ -112,14 +112,14 @@ async def call_groq(client: httpx.AsyncClient, prompt: str):
     except Exception as e:
         return f"Groq: Failed - {str(e)}"
     
-
+"""
 async def call_qwen(client: httpx.AsyncClient, prompt: str):
     try:
         resp = await client.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
             json={
-                "model": "qwen-qwq-32b",  # ✅ Reasoning-focused
+                "model": "qwen-qwq-32b",  # yes - Reasoning-focused
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 150
             }
@@ -135,7 +135,7 @@ async def call_qwen(client: httpx.AsyncClient, prompt: str):
         return f"Qwen-QWQ: {content}"
     except Exception as e:
         return f"Qwen-QWQ: Failed - {str(e)}"
-
+"""
 # -----------------------------------------------------
 # MAIN ENDPOINT: /ai
 # - Fetches history from Supabase
@@ -158,7 +158,7 @@ async def get_ai_response():
         async with httpx.AsyncClient(timeout=30.0) as client:
             tasks = [
                 call_groq(client, smart_context),
-                call_qwen(client, smart_context),
+                #call_qwen(client, smart_context),
                 call_huggingface(client, smart_context)  # fallback
             ]
             results = await asyncio.gather(*tasks)

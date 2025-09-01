@@ -95,7 +95,7 @@ async def call_groq(client: httpx.AsyncClient, prompt: str):
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
             json={
-                "model": "llama-3.3-70b-versatile",  # ✅ Current production model
+                "model": "llama-3.3-70b-versatile",  # ✅ Latest production model
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 150
             }
@@ -111,6 +111,30 @@ async def call_groq(client: httpx.AsyncClient, prompt: str):
         return f"Groq: {content}"
     except Exception as e:
         return f"Groq: Failed - {str(e)}"
+    
+
+async def call_qwen(client: httpx.AsyncClient, prompt: str):
+    try:
+        resp = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            json={
+                "model": "qwen-qwq-32b",  # ✅ Reasoning-focused
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 150
+            }
+        )
+        if resp.status_code != 200:
+            return f"Qwen-QWQ: HTTP {resp.status_code} - {resp.text}"
+        
+        data = resp.json()
+        if "choices" not in data or len(data["choices"]) == 0:
+            return "Qwen-QWQ: No 'choices' in response"
+        
+        content = data["choices"][0]["message"]["content"]
+        return f"Qwen-QWQ: {content}"
+    except Exception as e:
+        return f"Qwen-QWQ: Failed - {str(e)}"
 
 # -----------------------------------------------------
 # MAIN ENDPOINT: /ai
@@ -133,8 +157,9 @@ async def get_ai_response():
         # 4. Call AI models in parallel
         async with httpx.AsyncClient(timeout=30.0) as client:
             tasks = [
-                call_huggingface(client, smart_context),
-                call_groq(client, smart_context)
+                call_groq(client, smart_context),
+                call_qwen(client, smart_context),
+                call_huggingface(client, smart_context)  # fallback
             ]
             results = await asyncio.gather(*tasks)
 
